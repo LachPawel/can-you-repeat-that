@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Can You Repeat That?</title>
+<style>
+  :root { --bg:#0d0f12; --panel:#171a1f; --line:#2a2f37; --text:#eef1f5; --dim:#8b94a3;
+          --good:#3ddc97; --warn:#f5b942; --bad:#ff5d5d; --info:#6aa9ff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.4 -apple-system, "SF Pro Text", Inter, system-ui, sans-serif; }
+  main { max-width:1200px; margin:0 auto; padding:24px; display:grid; gap:16px; grid-template-columns: 1fr 1fr; }
+  h1 { grid-column:1/-1; margin:0; font-size:28px; letter-spacing:-.01em; }
+  h1 small { color:var(--dim); font-weight:400; font-size:15px; margin-left:12px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px; }
+  .label { color:var(--dim); font-size:12px; text-transform:uppercase; letter-spacing:.08em; }
+  #banner { grid-column:1/-1; text-align:center; padding:28px 20px; }
+  #decision { font-size:64px; font-weight:700; letter-spacing:-.02em; line-height:1.05; }
+  #heard { font-size:24px; color:var(--dim); margin-top:10px; min-height:34px; }
+  #why { color:var(--dim); margin-top:6px; font-size:14px; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:10px 0 16px; }
+  .two button { background:#0b0d10; border:2px solid var(--line); border-radius:12px; padding:12px; color:var(--dim);
+                font:inherit; text-align:left; cursor:pointer; }
+  .two button.gate { border-color:var(--info); }
+  .two button span { display:block; font-size:13px; }
+  .two button.gate span::after { content:"  (gates the arm)"; color:var(--info); }
+  .two button b { display:block; font-size:64px; font-weight:700; font-variant-numeric:tabular-nums; line-height:1.1; }
+  .bar { position:relative; height:18px; background:#0b0d10; border-radius:9px; border:1px solid var(--line); }
+  .bar i { position:absolute; left:0; top:0; bottom:0; border-radius:9px; transition:width .3s, background .3s; }
+  .bar b { position:absolute; top:-6px; bottom:-6px; width:3px; background:var(--text); border-radius:2px; }
+  .row { display:flex; justify-content:space-between; gap:12px; margin-top:12px; color:var(--dim); font-size:14px; flex-wrap:wrap; }
+  .row span b { color:var(--text); font-variant-numeric:tabular-nums; }
+  .switches { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px; }
+  .sw { border:2px solid var(--good); background:transparent; color:var(--good); border-radius:12px; padding:14px;
+        font:inherit; font-weight:700; font-size:18px; cursor:pointer; }
+  .sw.off { border-color:var(--bad); color:var(--bad); }
+  input[type=range] { width:100%; margin-top:14px; accent-color:var(--info); }
+  #arm { font-size:40px; font-weight:700; margin:8px 0; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .chip { border:1px solid var(--line); border-radius:999px; padding:4px 12px; font-size:14px; color:var(--dim); }
+  .chip.on { border-color:var(--good); color:var(--good); }
+  #log { grid-column:1/-1; }
+  table { width:100%; border-collapse:collapse; font-size:14px; margin-top:8px; }
+  td { padding:6px 8px; border-top:1px solid var(--line); vertical-align:top; }
+  td.d { font-weight:700; white-space:nowrap; }
+  .act { color:var(--good); } .ask { color:var(--warn); } .ignore { color:var(--dim); } .stop, .error { color:var(--bad); }
+  @media (max-width:800px) { main { grid-template-columns:1fr; } #decision { font-size:40px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Can You Repeat That? <small>Vapi + ai-coustics Tyto + Jev + SO-101</small></h1>
+  <section class="panel" id="banner">
+    <div class="label">Last decision</div>
+    <div id="decision">Listening</div>
+    <div id="heard"></div>
+    <div id="why"></div>
+    <div id="live" style="margin-top:14px;font-size:20px;color:var(--info);min-height:28px"></div>
+  </section>
+  <section class="panel">
+    <div class="label">Tyto 1.2 risk score</div>
+    <div class="two">
+      <button id="src-raw" data-v="raw"><span>Raw mic</span><b id="risk-raw">--</b></button>
+      <button id="src-vf" data-v="vf"><span>After Voice Focus 2.3</span><b id="risk-vf">--</b></button>
+    </div>
+    <div class="bar"><i id="fill"></i><b id="mark"></b></div>
+    <div class="row">
+      <span>limit <b id="limit">--</b></span>
+      <span>voices <b id="voices">--</b></span>
+      <span>noise <b id="noise">--</b></span>
+      <span id="tyto"></span>
+    </div>
+    <input id="slider" type="range" min="0.1" max="0.9" step="0.01" aria-label="Tyto risk limit">
+    <div class="switches">
+      <button id="sw-vf" class="sw"></button>
+      <button id="sw-gate" class="sw"></button>
+      <button id="sw-local" class="sw" style="grid-column:1/-1"></button>
+    </div>
+  </section>
+  <section class="panel">
+    <div class="label">Arm</div>
+    <div id="arm">--</div>
+    <div class="chips" id="motions"></div>
+  </section>
+  <section class="panel" id="log">
+    <div class="label">Log</div>
+    <table id="rows"></table>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const TITLE = { act:"MOVING", ask:"CAN YOU REPEAT THAT?", ignore:"IGNORED", stop:"STOPPED", error:"ARM ERROR" };
+const esc = s => String(s ?? "").replace(/[&<>]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" }[c]));
+let dragging = false;
+$("slider").addEventListener("input", () => { dragging = true; $("limit").textContent = (+$("slider").value).toFixed(2); });
+$("slider").addEventListener("change", async () => { await fetch("/limit?v=" + $("slider").value, { method:"POST" }); dragging = false; });
+
+for (const k of ["raw", "vf"]) $("src-" + k).addEventListener("click", () => fetch("/gate?v=" + k, { method:"POST" }));
+
+let sw = { vf: true, gate: true, local: true };
+for (const k of ["vf", "gate", "local"]) $("sw-" + k).addEventListener("click", () => fetch(`/switch?${k}=${sw[k] ? "off" : "on"}`, { method:"POST" }));
+
+async function tick() {
+  try {
+    const s = await (await fetch("/state")).json();
+    const tone = r => r == null ? "var(--dim)" : r >= s.limit ? "var(--bad)" : r >= 0.3 ? "var(--warn)" : "var(--good)";
+    for (const k of ["raw", "vf"]) {
+      const r = s.tyto[k] ? s.tyto[k].risk_score : null;
+      $("risk-" + k).textContent = r == null ? "--" : r.toFixed(2);
+      $("risk-" + k).style.color = tone(r);
+      $("src-" + k).className = s.tyto.gate === k ? "gate" : "";
+    }
+    const sc = s.tyto[s.tyto.gate] || s.tyto.raw, fresh = !!sc;
+    const risk = fresh ? sc.risk_score : null, color = tone(risk);
+    $("fill").style.width = ((risk ?? 0) * 100) + "%"; $("fill").style.background = color;
+    $("mark").style.left = (s.limit * 100) + "%";
+    if (!dragging) { $("slider").value = s.limit; $("limit").textContent = s.limit.toFixed(2); }
+    $("voices").textContent = fresh ? sc.interfering_speech.toFixed(2) : "--";
+    $("noise").textContent = fresh ? sc.noise.toFixed(2) : "--";
+    $("tyto").textContent = s.tyto.text + " · " + s.vf;
+    sw = { vf: s.vf_on, gate: s.gate_on, local: s.local_voice };
+    $("sw-local").textContent = s.local_voice ? "Local voice (Deepgram + Reachy) ON" : "Local voice OFF: Vapi agent mode";
+    $("sw-local").className = "sw" + (s.local_voice ? "" : " off");
+    $("live").textContent = s.speaking ? "🔊 Reachy is speaking" : s.partial ? "🎙 " + s.partial : "🎙 " + (s.voice || "");
+    $("sw-vf").textContent = "Voice Focus " + (s.vf_on ? "ON" : "OFF"); $("sw-vf").className = "sw" + (s.vf_on ? "" : " off");
+    $("sw-gate").textContent = "Tyto gate " + (s.gate_on ? "ON" : "OFF"); $("sw-gate").className = "sw" + (s.gate_on ? "" : " off");
+    const a = s.arm || {};
+    $("arm").textContent = !a.connected ? "offline" : a.playing ? a.playing : "ready";
+    $("arm").style.color = !a.connected ? "var(--bad)" : a.playing ? "var(--info)" : "var(--good)";
+    $("motions").innerHTML = (s.motions || []).map(m => `<span class="chip ${m === a.playing ? "on" : ""}">${esc(m)}</span>`).join("");
+    const e = s.events[0];
+    if (e && Date.now() / 1000 - e.t < 8) {
+      $("decision").textContent = TITLE[e.decision] || e.decision; $("decision").className = e.decision;
+      $("heard").textContent = e.heard ? "“" + e.heard + "”" : "";
+      $("why").textContent = `${e.source}: ${e.reason}`;
+    } else { $("decision").textContent = "Listening"; $("decision").className = ""; $("heard").textContent = ""; $("why").textContent = ""; }
+    $("rows").innerHTML = s.events.slice(0, 12).map(e => `<tr>
+      <td>${new Date(e.t * 1000).toLocaleTimeString()}</td>
+      <td class="d ${e.decision}">${esc(e.decision)}</td><td>${esc(e.action)}</td>
+      <td>${e.risk == null ? "--" : e.risk.toFixed(2)}</td><td>${esc(e.heard)}</td>
+      <td>${esc(e.source)}: ${esc(e.reason)}</td></tr>`).join("");
+  } catch (_) { $("tyto").textContent = "bridge offline"; }
+}
+setInterval(tick, 400); tick();
+</script>
+</body>
+</html>
